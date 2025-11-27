@@ -1,147 +1,101 @@
 # Sports Load Management Agent
 
-LangGraph-based agent for analyzing athlete training load data. Calculates ACWR (Acute:Chronic Workload Ratio), generates visualizations, and provides AI-powered interpretation reports.
+LangGraph-based agent for analyzing athlete training load data. Calculates ACWR (Acute:Chronic Workload Ratio), generates visualizations, and provides AI-powered reports.
 
 ## Features
 
-- **Automatic Column Detection**: Smart detection of player identifiers, dates, and load data (supports both raw load and RPE × Time for sRPE calculation)
-- **Multi-file Support**: Upload and combine multiple CSV files
-- **ACWR Calculation**: 
-  - Short-term average (3-day rolling)
-  - Long-term average (2-week)
-  - Load ratio (ACWR = short/long)
-  - Load quality categorization (high/medium/low)
-- **Visualizations**:
-  - Top players by load (bar chart)
-  - Load quality distribution (pie chart)
-  - Team load timeline
-  - Player load heatmap
-- **AI-Powered Reports**: LLM-generated insights and recommendations
-- **Token Tracking**: Monitor API usage per session
+- **Auto Column Detection** - Detects player names, dates, and load data (or RPE × Time)
+- **ACWR Calculation** - Short-term (3-day) and long-term (2-week) averages
+- **5 Visualizations** - Top players, load distribution, timeline, heatmap
+- **AI Reports** - LLM-generated insights and recommendations
+- **Downloadable Outputs** - Processed CSV and color-coded Excel files
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.10+
-- OpenAI API key (or compatible endpoint)
-
-### Installation
+### 1. Install Backend
 
 ```bash
 cd backend
-
-# Using uv (recommended)
-uv sync
-
-# Or using pip
 pip install -e .
 ```
 
-### Environment Setup
-
-Create a `.env` file in the `backend` directory:
-
-```env
-OPENAI_API_KEY=your-api-key
-LANGGRAPH_API_ENDPOINT=https://api.openai.com/v1  # Or your preferred endpoint
-LANGGRAPH_GENERAL_MODEL=gpt-4.1  # Or your preferred model
+Or with uv:
+```bash
+cd backend
+uv sync
 ```
 
-### Running the Server
+### 2. Set Environment Variables
+
+Create `backend/.env`:
+```env
+OPENAI_API_KEY=your-api-key
+LANGGRAPH_API_ENDPOINT=https://api.openai.com/v1
+LANGGRAPH_GENERAL_MODEL=gpt-4
+```
+
+### 3. Start Backend
 
 ```bash
 cd backend
-
-# Development mode
-python -m sports_load_agent.app
-
-# Or using uvicorn directly
-uvicorn sports_load_agent.app:app --host 0.0.0.0 --port 8000 --reload
-
-# Or using LangGraph dev server
-langgraph dev
+uvicorn sports_load_agent.app:app --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at `http://localhost:8000`
+Backend runs at: http://localhost:8000  
+API docs at: http://localhost:8000/docs
 
-## API Usage
-
-### 1. Upload Files
+### 4. Start Frontend
 
 ```bash
-curl -X POST "http://localhost:8000/api/upload" \
-  -F "files=@training_data.csv"
+cd frontend
+npm install
+npm run dev
 ```
 
-Response:
-```json
-{
-  "session_id": "abc123...",
-  "uploaded_files": ["uploads/abc123.../training_data.csv"],
-  "message": "Successfully uploaded 1 file(s)"
-}
-```
+Frontend runs at: http://localhost:5173
 
-### 2. Process Data
+### 5. Use the App
 
-```bash
-curl -X POST "http://localhost:8000/api/process/{session_id}"
-```
+1. Open http://localhost:5173
+2. Upload your CSV file
+3. Click "Analyze Training Load"
+4. View results and download files
 
-### 3. Get Results
+## API Endpoints
 
-```bash
-curl "http://localhost:8000/api/results/{session_id}"
-```
-
-Response includes:
-- `report_markdown`: AI-generated analysis report
-- `visualization_files`: URLs to generated charts
-- `processed_csv_path`: URL to processed CSV
-- `processed_excel_path`: URL to colored Excel file
-- `token_usage`: API token statistics
-
-### 4. Download Files
-
-```bash
-curl "http://localhost:8000/api/download/{session_id}/{filename}" -o output.png
-```
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/upload` | POST | Upload CSV file(s) |
+| `/api/process/{session_id}` | POST | Start processing |
+| `/api/results/{session_id}` | GET | Get results |
+| `/api/download/{session_id}/{filename}` | GET | Download file |
 
 ## Data Format
 
-### Input CSV Requirements
+Your CSV should have columns for:
 
-Your CSV should include columns for:
+| Column Type | Accepted Names |
+|-------------|----------------|
+| Player | `Athlete Name`, `Player`, `Name`, `player_name` |
+| Date | `Date`, `date`, `Day` |
+| Load | `Load`, `Training Load` OR (`RPE` + `Time`) |
 
-1. **Player Identifier** (any of these names):
-   - `Athlete Name`, `Player`, `Name`, `player_name`, `Athlete`, `ID`
-
-2. **Date**:
-   - `Date`, `date`, `Day`, `Training Date`
-
-3. **Load Data** (one of these options):
-   - Direct load: `Load`, `Training Load`, `sRPE`, `Workload`
-   - OR separate RPE and Time columns:
-     - RPE: `RPE`, `Rating of Perceived Exertion`
-     - Time: `Time`, `Time (mins)`, `Duration`, `Minutes`
-
-### Example CSV
-
+**Example:**
 ```csv
 Athlete Name,RPE,Time (mins),Date
 John Smith,7,90,2024-01-15
 Jane Doe,6,75,2024-01-15
-John Smith,8,60,2024-01-16
 ```
+
+If RPE and Time columns exist, training load is calculated as `RPE × Time`.
 
 ## ACWR Interpretation
 
-| ACWR Range | Category | Meaning |
-|------------|----------|---------|
-| > 1.5 | High | Elevated injury risk - consider reducing load |
-| 0.67 - 1.5 | Medium | Optimal training zone |
-| < 0.67 | Low | Potential undertraining - fitness may decline |
+| ACWR | Category | Meaning |
+|------|----------|---------|
+| > 1.5 | 🔴 High | Injury risk - reduce load |
+| 0.67 - 1.5 | 🟡 Medium | Optimal training zone |
+| < 0.67 | 🟢 Low | Undertraining risk |
 
 ## Project Structure
 
@@ -149,33 +103,21 @@ John Smith,8,60,2024-01-16
 sports-load-management-agent/
 ├── backend/
 │   ├── src/sports_load_agent/
-│   │   ├── agent_state.py       # State management
-│   │   ├── agent_graph.py       # LangGraph workflow
-│   │   ├── settings.py          # Configuration
-│   │   ├── app.py               # FastAPI app
-│   │   ├── nodes/               # LangGraph nodes
-│   │   ├── core/                # Business logic
-│   │   ├── utils/               # Utilities
-│   │   └── api/                 # API routes
-│   ├── runtime_cache/           # Cached DataFrames
-│   ├── uploads/                 # Uploaded files
-│   └── outputs/                 # Generated outputs
+│   │   ├── app.py              # FastAPI app
+│   │   ├── agent_graph.py      # LangGraph workflow
+│   │   ├── core/
+│   │   │   ├── load_calculator.py   # ACWR calculations
+│   │   │   └── visualizations.py    # Chart generation
+│   │   ├── nodes/              # LangGraph nodes
+│   │   └── api/routes.py       # API endpoints
+│   └── pyproject.toml
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx
+│   │   └── components/
+│   └── package.json
 └── README.md
 ```
-
-## Development
-
-### Running Tests
-
-```bash
-cd backend
-pytest tests/
-```
-
-### API Documentation
-
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
 
 ## License
 

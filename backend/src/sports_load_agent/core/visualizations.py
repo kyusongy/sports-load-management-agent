@@ -148,6 +148,15 @@ def plot_top_players_bar(
     Returns:
         Path to saved plot file.
     """
+    # Human-readable labels for metrics
+    metric_labels = {
+        "load": "ACWR",
+        "data": "Training Load (sRPE)",
+        "short_term_ave": "Short-term Average",
+        "long_term_ave": "Long-term Average",
+    }
+    metric_label = metric_labels.get(metric, metric.replace('_', ' ').title())
+
     subset = df.copy()
 
     if start_date:
@@ -166,8 +175,8 @@ def plot_top_players_bar(
     ax.set_yticklabels(top_players.index)
     ax.invert_yaxis()
 
-    ax.set_xlabel(f"Average {metric.replace('_', ' ').title()}", fontsize=11)
-    ax.set_title(f"Top {n} Players by {metric.replace('_', ' ').title()}", fontsize=14, fontweight="bold")
+    ax.set_xlabel(f"Average {metric_label}", fontsize=11)
+    ax.set_title(f"Top {n} Players by {metric_label}", fontsize=14, fontweight="bold")
 
     # Add value labels
     for i, (bar, val) in enumerate(zip(bars, top_players.values)):

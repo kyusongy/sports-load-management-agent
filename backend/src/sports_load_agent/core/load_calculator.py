@@ -35,30 +35,91 @@ class LoadCalculator:
 
     def clean_data(self) -> None:
         """
-        Clean the data column and dates.
+        Clean and prepare the data for ACWR calculations.
 
-        - Convert 'data' column to numeric (handles 'x', 'X', '-', etc.)
-        - Ensure dates are valid
-        - Drop rows with missing dates
+        Steps:
+        1. Convert 'data' column to numeric (handles 'x', 'X', '-', etc.)
+        2. Drop completely empty rows (all columns empty)
+        3. Drop rows with missing dates (can't compute time-series metrics)
+        4. Keep rows with missing load values (they just won't contribute to averages)
         """
-        # Clean data column
+        initial_len = len(self.df)
+
+        # Clean data column - convert to numeric, non-numeric becomes NaN
         self.df["data"] = pd.to_numeric(self.df["data"], errors="coerce")
 
-        # Ensure date column is datetime
-        self.df["date"] = pd.to_datetime(self.df["date"], errors="coerce")
+        # Step 1: Drop rows where ALL key columns are empty (completely blank rows)
+        mask_all_empty = (
+            self.df["player_name"].isna() | (self.df["player_name"].str.strip() == "")
+        ) & self.df["date"].isna() & self.df["data"].isna()
+        empty_count = mask_all_empty.sum()
+        self.df = self.df[~mask_all_empty]
 
-        # Count stats before dropping
+        # Step 2: Drop rows with missing dates
+        # ACWR is time-series based - can't calculate without knowing when training occurred
+        missing_dates_count = self.df["date"].isna().sum()
+        if missing_dates_count > 0:
+            logger.warning(
+                f"Dropping {missing_dates_count} rows with missing dates "
+                "(required for time-series ACWR calculations)"
+            )
+            self.df = self.df.dropna(subset=["date"])
+
+        # Log final stats
         missing_data = self.df["data"].isna().sum()
-        missing_dates = self.df["date"].isna().sum()
-
-        # Drop rows with missing dates (can't compute load without date)
-        initial_len = len(self.df)
-        self.df = self.df.dropna(subset=["date"])
 
         logger.info(
-            f"Cleaned data: {missing_data} missing load values, "
-            f"{missing_dates} missing dates (dropped), "
+            f"Cleaned data: dropped {empty_count} empty rows, "
+            f"{missing_dates_count} rows with missing dates, "
+            f"{missing_data} rows with missing load values (kept as NaN), "
             f"{len(self.df)}/{initial_len} rows retained"
+        )
+
+    def fill_missing_dates(self) -> None:
+        """
+        Ensure continuous date column from first to last date for each player.
+
+        For proper time-series analysis, we need every date between the first
+        and last date in the dataset. This method fills in missing dates with
+        NaN values for the load column.
+        """
+        if self.df.empty:
+            return
+
+        # Get the global date range
+        min_date = self.df["date"].min()
+        max_date = self.df["date"].max()
+        full_date_range = pd.date_range(start=min_date, end=max_date, freq="D")
+
+        logger.info(
+            f"Filling missing dates: range {min_date.date()} to {max_date.date()} "
+            f"({len(full_date_range)} days)"
+        )
+
+        # Get all unique players
+        players = self.df["player_name"].unique()
+
+        # Create a complete DataFrame with all player-date combinations
+        all_combinations = pd.MultiIndex.from_product(
+            [players, full_date_range],
+            names=["player_name", "date"]
+        ).to_frame(index=False)
+
+        # Merge with existing data - this fills in missing dates with NaN
+        original_count = len(self.df)
+        self.df = all_combinations.merge(
+            self.df,
+            on=["player_name", "date"],
+            how="left"
+        )
+
+        # Sort by player and date
+        self.df = self.df.sort_values(["player_name", "date"]).reset_index(drop=True)
+
+        added_rows = len(self.df) - original_count
+        logger.info(
+            f"Added {added_rows} rows for missing dates, "
+            f"total rows: {len(self.df)}"
         )
 
     def _compute_short_term_for_player(self, data_series: pd.Series) -> pd.Series:
@@ -214,9 +275,17 @@ class LoadCalculator:
         """
         Run the full processing pipeline.
 
+        Steps:
+        1. Clean data (remove empty rows, convert types)
+        2. Fill missing dates (ensure continuous date range per player)
+        3. Add short-term average (3-day rolling)
+        4. Add long-term average (2-week)
+        5. Add load ratio and quality category
+
         Returns self for method chaining.
         """
         self.clean_data()
+        self.fill_missing_dates()
         self.add_short_term_average()
         self.add_long_term_average()
         self.add_load_and_quality()

@@ -17,7 +17,6 @@ export function Results({ results, onReset }: ResultsProps) {
     visualization_files,
     processed_csv_path,
     processed_excel_path,
-    token_usage,
   } = results;
 
   return (
@@ -62,29 +61,49 @@ export function Results({ results, onReset }: ResultsProps) {
         <section className="results-section visualizations-section">
           <h3>📈 Visualizations</h3>
           <div className="visualizations-grid">
-            {visualization_files.map((file, index) => {
-              const url = getDownloadUrl(file);
-              const filename = file.split('/').pop() || `chart-${index}`;
-              
-              // Extract chart type from filename
-              let title = 'Chart';
-              if (filename.includes('top_players_load')) title = 'Top Players by ACWR';
-              else if (filename.includes('top_players_training')) title = 'Top Players by Training Load';
-              else if (filename.includes('load_distribution')) title = 'Load Quality Distribution';
-              else if (filename.includes('team_timeline')) title = 'Team Load Timeline';
-              else if (filename.includes('player_heatmap')) title = 'Player Load Heatmap';
+            {visualization_files
+              .filter((file) => {
+                // Filter out empty/invalid entries
+                if (!file || file.length === 0) return false;
+                const filename = file.split('/').pop() || '';
+                // Only include known chart types
+                return (
+                  filename.includes('top_players_load') ||
+                  filename.includes('top_players_training') ||
+                  filename.includes('load_distribution') ||
+                  filename.includes('team_timeline') ||
+                  filename.includes('player_heatmap')
+                );
+              })
+              .map((file) => {
+                const url = getDownloadUrl(file);
+                const filename = file.split('/').pop() || '';
+                
+                // Extract chart type from filename - match the backend plot titles
+                let title = 'Chart';
+                if (filename.includes('top_players_load')) {
+                  title = 'Top 5 Players by ACWR';
+                } else if (filename.includes('top_players_training')) {
+                  title = 'Top 5 Players by Training Load (sRPE)';
+                } else if (filename.includes('load_distribution')) {
+                  title = 'Load Quality Distribution';
+                } else if (filename.includes('team_timeline')) {
+                  title = 'Team Load Timeline';
+                } else if (filename.includes('player_heatmap')) {
+                  title = 'Player Load Heatmap (Weekly)';
+                }
 
-              return (
-                <div key={file} className="visualization-card">
-                  <h4>{title}</h4>
-                  <img src={url} alt={title} className="visualization-image" />
-                  <a href={url} download className="viz-download-btn">
-                    <Download size={16} />
-                    Download
-                  </a>
-                </div>
-              );
-            })}
+                return (
+                  <div key={file} className="visualization-card">
+                    <h4>{title}</h4>
+                    <img src={url} alt={title} className="visualization-image" />
+                    <a href={url} download className="viz-download-btn">
+                      <Download size={16} />
+                      Download
+                    </a>
+                  </div>
+                );
+              })}
           </div>
         </section>
       )}
@@ -102,26 +121,7 @@ export function Results({ results, onReset }: ResultsProps) {
         </section>
       )}
 
-      {/* Token Usage */}
-      {token_usage && token_usage.total_tokens > 0 && (
-        <section className="results-section token-section">
-          <h3>🔢 API Usage</h3>
-          <div className="token-stats">
-            <div className="token-stat">
-              <span className="token-label">Prompt Tokens</span>
-              <span className="token-value">{token_usage.prompt_tokens}</span>
-            </div>
-            <div className="token-stat">
-              <span className="token-label">Completion Tokens</span>
-              <span className="token-value">{token_usage.completion_tokens}</span>
-            </div>
-            <div className="token-stat token-stat--total">
-              <span className="token-label">Total Tokens</span>
-              <span className="token-value">{token_usage.total_tokens}</span>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Token Usage - Hidden for cleaner UI */}
     </div>
   );
 }
