@@ -2,6 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Runtime directories
+backend/runtime_cache/
+backend/uploads/
+backend/outputs/
+backend/logs/
 *.so
 .Python
 build/

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://langchain-ai.github.io/langgraph/langgraph.schema.json",
+  "graphs": {
+    "agent": "./src/sports_load_agent/agent_graph.py:graph"
+  },
+  "http": {
+    "app": "./src/sports_load_agent/app.py:app"
+  },
+  "env": ".env"
+}
+
