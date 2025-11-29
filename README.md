@@ -1,14 +1,35 @@
 # Sports Load Management Agent
 
-LangGraph-based agent for analyzing athlete training load data. Calculates ACWR (Acute:Chronic Workload Ratio), generates visualizations, and provides AI-powered reports.
+LangGraph-based agent for analyzing athlete training load data. Calculates ACWR (Acute:Chronic Workload Ratio) and provides conversational AI analysis with tool calling.
 
 ## Features
 
 - **Auto Column Detection** - Detects player names, dates, and load data (or RPE × Time)
 - **ACWR Calculation** - Short-term (3-day) and long-term (2-week) averages
-- **5 Visualizations** - Top players, load distribution, timeline, heatmap
-- **AI Reports** - LLM-generated insights and recommendations
+- **Conversational AI** - Chat with Claude Sonnet 4.5 to analyze your data
+- **15 Analysis Tools** - Data queries, visualizations, and custom Python analysis
 - **Downloadable Outputs** - Processed CSV and color-coded Excel files
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         User Interface                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Upload CSV  →  Process Data  →  Chat with AI Analysis Agent    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐   ┌─────────────────┐   ┌─────────────────┐
+│  Data Ingest  │ → │  Data Process   │ → │   Chat Agent    │
+│  (LangGraph)  │   │  (LangGraph)    │   │ (Claude + Tools)│
+└───────────────┘   └─────────────────┘   └─────────────────┘
+        │                     │                     │
+        ▼                     ▼                     ▼
+   Column Mapping      ACWR Calculation      15 Analysis Tools
+   via LLM             CSV/Excel Export      (Query, Viz, Python)
+```
 
 ## Quick Start
 
@@ -32,6 +53,7 @@ Create `backend/.env`:
 OPENAI_API_KEY=your-api-key
 LANGGRAPH_API_ENDPOINT=https://api.openai.com/v1
 LANGGRAPH_GENERAL_MODEL=gpt-4
+LANGGRAPH_CHAT_MODEL=claude-sonnet-4-5-20250929
 ```
 
 ### 3. Start Backend
@@ -58,8 +80,8 @@ Frontend runs at: http://localhost:5173
 
 1. Open http://localhost:5173
 2. Upload your CSV file
-3. Click "Analyze Training Load"
-4. View results and download files
+3. Download processed data (CSV/Excel with ACWR)
+4. Chat with the AI to analyze your data
 
 ## API Endpoints
 
@@ -68,7 +90,38 @@ Frontend runs at: http://localhost:5173
 | `/api/upload` | POST | Upload CSV file(s) |
 | `/api/process/{session_id}` | POST | Start processing |
 | `/api/results/{session_id}` | GET | Get results |
+| `/api/chat/{session_id}` | POST | Send chat message |
+| `/api/chat/{session_id}/history` | GET | Get chat history |
 | `/api/download/{session_id}/{filename}` | GET | Download file |
+
+## Chat Tools (15 total)
+
+### Data Query Tools (8)
+| Tool | Description |
+|------|-------------|
+| `get_data_summary` | Overall statistics, player count, ACWR distribution |
+| `get_player_data` | Individual player details and recent records |
+| `list_players` | All players with current status |
+| `get_high_risk_players` | Players with ACWR > 1.5 (injury risk) |
+| `get_undertraining_players` | Players with ACWR < 0.67 |
+| `get_player_rankings` | Rank players by any metric |
+| `compare_players` | Side-by-side player comparison |
+| `get_team_trend` | Team average ACWR over time |
+
+### Visualization Tools (6)
+| Tool | Description |
+|------|-------------|
+| `plot_player_trend` | Individual player ACWR line chart |
+| `plot_players_comparison` | Multiple players overlaid |
+| `plot_team_timeline` | All players on one chart |
+| `plot_category_distribution` | Pie chart of high/medium/low |
+| `plot_rankings` | Horizontal bar chart |
+| `plot_heatmap` | Player × Time heatmap |
+
+### Fallback Tool (1)
+| Tool | Description |
+|------|-------------|
+| `execute_python_analysis` | Sandboxed Python (pandas, numpy, matplotlib) |
 
 ## Data Format
 
@@ -89,6 +142,18 @@ Jane Doe,6,75,2024-01-15
 
 If RPE and Time columns exist, training load is calculated as `RPE × Time`.
 
+## Output Columns
+
+| Column | Description |
+|--------|-------------|
+| `player_name` | Player identifier |
+| `date` | Training date |
+| `data` | Raw training load (sRPE) |
+| `short_term_ave` | 3-day rolling average |
+| `long_term_ave` | 2-week average |
+| `ACWR` | Acute:Chronic Workload Ratio |
+| `ACWR_category` | high / medium / low |
+
 ## ACWR Interpretation
 
 | ACWR | Category | Meaning |
@@ -103,21 +168,51 @@ If RPE and Time columns exist, training load is calculated as `RPE × Time`.
 sports-load-management-agent/
 ├── backend/
 │   ├── src/sports_load_agent/
-│   │   ├── app.py              # FastAPI app
-│   │   ├── agent_graph.py      # LangGraph workflow
+│   │   ├── app.py                 # FastAPI application
+│   │   ├── settings.py            # Configuration
+│   │   ├── agent_graph.py         # LangGraph workflow (ingest → process)
+│   │   ├── agent_state.py         # State schema & DataFrame handling
+│   │   ├── chat_agent.py          # Conversational AI agent
+│   │   ├── api/
+│   │   │   └── routes.py          # API endpoints
 │   │   ├── core/
-│   │   │   ├── load_calculator.py   # ACWR calculations
-│   │   │   └── visualizations.py    # Chart generation
-│   │   ├── nodes/              # LangGraph nodes
-│   │   └── api/routes.py       # API endpoints
+│   │   │   ├── load_calculator.py # ACWR calculations
+│   │   │   └── visualizations.py  # Chart generation functions
+│   │   ├── nodes/
+│   │   │   ├── data_ingest_node.py   # CSV loading + column mapping
+│   │   │   └── data_process_node.py  # ACWR calculation + export
+│   │   ├── tools/
+│   │   │   ├── data_query_tools.py   # 8 data query tools
+│   │   │   ├── visualization_tools.py # 6 visualization tools
+│   │   │   └── python_sandbox.py     # Sandboxed Python execution
+│   │   └── utils/
+│   │       ├── column_mapper.py   # LLM-based column detection
+│   │       └── llm_factory.py     # LLM initialization + token tracking
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx
-│   │   └── components/
+│   │   ├── App.tsx                # Main app with chat integration
+│   │   ├── api/client.ts          # API client
+│   │   ├── components/
+│   │   │   ├── Chat.tsx           # Chat interface
+│   │   │   ├── FileUpload.tsx     # File upload component
+│   │   │   └── ProcessingStatus.tsx
+│   │   └── hooks/
+│   │       ├── useProcessing.ts   # Processing state management
+│   │       └── useChat.ts         # Chat state management
 │   └── package.json
 └── README.md
 ```
+
+## Example Chat Queries
+
+- "Show me a summary of the data"
+- "Who has the highest injury risk?"
+- "Plot Rob's ACWR trend"
+- "Compare John and Mike"
+- "Show me the team timeline"
+- "List all players sorted by risk"
+- "What's the ACWR distribution?"
 
 ## License
 
