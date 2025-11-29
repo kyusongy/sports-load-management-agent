@@ -23,12 +23,12 @@ LangGraph-based agent for analyzing athlete training load data. Calculates ACWR 
         ▼                     ▼                     ▼
 ┌───────────────┐   ┌─────────────────┐   ┌─────────────────┐
 │  Data Ingest  │ → │  Data Process   │ → │   Chat Agent    │
-│  (LangGraph)  │   │  (LangGraph)    │   │ (Claude + Tools)│
+│  (LangGraph)  │   │  (LangGraph)    │   │ (LLM + Tools)   │
 └───────────────┘   └─────────────────┘   └─────────────────┘
         │                     │                     │
         ▼                     ▼                     ▼
    Column Mapping      ACWR Calculation      15 Analysis Tools
-   via LLM             CSV/Excel Export      (Query, Viz, Python)
+                       CSV/Excel Export      
 ```
 
 ## Quick Start
@@ -51,9 +51,9 @@ uv sync
 Create `backend/.env`:
 ```env
 OPENAI_API_KEY=your-api-key
-LANGGRAPH_API_ENDPOINT=https://api.openai.com/v1
-LANGGRAPH_GENERAL_MODEL=gpt-4
-LANGGRAPH_CHAT_MODEL=claude-sonnet-4-5-20250929
+LANGGRAPH_API_ENDPOINT=your-endpoint
+LANGGRAPH_GENERAL_MODEL=your-choice-of-general-model
+LANGGRAPH_CHAT_MODEL=your-choice-of-chat-model
 ```
 
 ### 3. Start Backend
@@ -83,45 +83,6 @@ Frontend runs at: http://localhost:5173
 3. Download processed data (CSV/Excel with ACWR)
 4. Chat with the AI to analyze your data
 
-## API Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/upload` | POST | Upload CSV file(s) |
-| `/api/process/{session_id}` | POST | Start processing |
-| `/api/results/{session_id}` | GET | Get results |
-| `/api/chat/{session_id}` | POST | Send chat message |
-| `/api/chat/{session_id}/history` | GET | Get chat history |
-| `/api/download/{session_id}/{filename}` | GET | Download file |
-
-## Chat Tools (15 total)
-
-### Data Query Tools (8)
-| Tool | Description |
-|------|-------------|
-| `get_data_summary` | Overall statistics, player count, ACWR distribution |
-| `get_player_data` | Individual player details and recent records |
-| `list_players` | All players with current status |
-| `get_high_risk_players` | Players with ACWR > 1.5 (injury risk) |
-| `get_undertraining_players` | Players with ACWR < 0.67 |
-| `get_player_rankings` | Rank players by any metric |
-| `compare_players` | Side-by-side player comparison |
-| `get_team_trend` | Team average ACWR over time |
-
-### Visualization Tools (6)
-| Tool | Description |
-|------|-------------|
-| `plot_player_trend` | Individual player ACWR line chart |
-| `plot_players_comparison` | Multiple players overlaid |
-| `plot_team_timeline` | All players on one chart |
-| `plot_category_distribution` | Pie chart of high/medium/low |
-| `plot_rankings` | Horizontal bar chart |
-| `plot_heatmap` | Player × Time heatmap |
-
-### Fallback Tool (1)
-| Tool | Description |
-|------|-------------|
-| `execute_python_analysis` | Sandboxed Python (pandas, numpy, matplotlib) |
 
 ## Data Format
 
@@ -204,15 +165,6 @@ sports-load-management-agent/
 └── README.md
 ```
 
-## Example Chat Queries
-
-- "Show me a summary of the data"
-- "Who has the highest injury risk?"
-- "Plot Rob's ACWR trend"
-- "Compare John and Mike"
-- "Show me the team timeline"
-- "List all players sorted by risk"
-- "What's the ACWR distribution?"
 
 ## License
 
