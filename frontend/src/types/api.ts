@@ -66,3 +66,33 @@ export type ProcessingStage =
   | 'completed'
   | 'failed';
 
+// Chat types
+export interface ChatRequest {
+  message: string;
+}
+
+export interface ToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+  result: string;
+}
+
+export interface ChatResponse {
+  session_id: string;
+  response: string;
+  tool_calls: ToolCall[];
+  generated_files: string[];
+  error?: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  tool_calls?: ToolCall[];
+}
+
+export interface ChatHistoryResponse {
+  session_id: string;
+  history: ChatMessage[];
+}
+

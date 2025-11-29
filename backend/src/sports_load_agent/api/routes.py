@@ -1,7 +1,7 @@
 """
 API routes for the sports load management agent.
 
-Provides endpoints for file upload, processing, and result retrieval.
+Provides endpoints for file upload, processing, chat, and result retrieval.
 """
 
 import shutil
@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from sports_load_agent.agent_graph import create_graph
 from sports_load_agent.agent_state import create_initial_state
+from sports_load_agent.chat_agent import get_or_create_chat_agent, remove_chat_agent
 from sports_load_agent.settings import OUTPUTS_DIR, UPLOADS_DIR
 from sports_load_agent.utils.llm_factory import LLMFactory
 
@@ -62,6 +63,29 @@ class UploadResponse(BaseModel):
     session_id: str
     uploaded_files: List[str]
     message: str
+
+
+class ChatRequest(BaseModel):
+    """Request model for chat endpoint."""
+
+    message: str
+
+
+class ChatResponse(BaseModel):
+    """Response model for chat endpoint."""
+
+    session_id: str
+    response: str
+    tool_calls: List[Dict[str, Any]] = []
+    generated_files: List[str] = []
+    error: Optional[str] = None
+
+
+class ChatHistoryResponse(BaseModel):
+    """Response model for chat history endpoint."""
+
+    session_id: str
+    history: List[Dict[str, Any]]
 
 
 @router.post("/upload", response_model=UploadResponse)
@@ -332,10 +356,158 @@ async def delete_session(session_id: str) -> Dict[str, str]:
     # Clean up token tracker
     LLMFactory.clear_session_tracker(session_id)
 
+    # Clean up chat agent
+    remove_chat_agent(session_id)
+
     # Remove from sessions
     del _sessions[session_id]
 
     return {"message": f"Session {session_id} deleted"}
+
+
+# ============================================================================
+# Chat Endpoints - Conversational Tool-Calling Interface
+# ============================================================================
+
+
+@router.post("/chat/{session_id}", response_model=ChatResponse)
+async def chat(session_id: str, request: ChatRequest) -> ChatResponse:
+    """
+    Send a message to the conversational agent and get a response.
+
+    The agent uses Claude Sonnet 4.5 with tool calling to:
+    - Query processed training load data
+    - Generate visualizations on demand
+    - Provide insights about athlete load and injury risk
+
+    Args:
+        session_id: Session ID (must have completed data processing).
+        request: Chat request with user message.
+
+    Returns:
+        Agent response with any tool calls and generated files.
+    """
+    if session_id not in _sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = _sessions[session_id]
+    state = session.get("state")
+
+    if not state or state.get("status") != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail="Data processing must be completed before using chat. "
+            "Please call /process/{session_id} first.",
+        )
+
+    processed_data = state.get("processed_data")
+    if processed_data is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No processed data available for this session.",
+        )
+
+    try:
+        # Get or create chat agent for this session
+        agent = get_or_create_chat_agent(session_id, processed_data)
+
+        # Process the chat message
+        result = agent.chat(request.message)
+
+        # Convert file paths to download URLs
+        generated_urls = []
+        for file_path in result.get("generated_files", []):
+            filename = Path(file_path).name
+            generated_urls.append(f"/api/download/{session_id}/{filename}")
+
+        return ChatResponse(
+            session_id=session_id,
+            response=result["response"],
+            tool_calls=result.get("tool_calls", []),
+            generated_files=generated_urls,
+            error=result.get("error"),
+        )
+
+    except ValueError as e:
+        # Handle missing API key or configuration errors
+        logger.error(f"Chat configuration error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    except Exception as e:
+        logger.exception(f"Chat error for session {session_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chat error: {str(e)}",
+        )
+
+
+@router.get("/chat/{session_id}/history", response_model=ChatHistoryResponse)
+async def get_chat_history(session_id: str) -> ChatHistoryResponse:
+    """
+    Get the conversation history for a session.
+
+    Args:
+        session_id: Session ID.
+
+    Returns:
+        List of messages in the conversation.
+    """
+    if session_id not in _sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = _sessions[session_id]
+    state = session.get("state")
+
+    if not state or state.get("status") != "completed":
+        return ChatHistoryResponse(session_id=session_id, history=[])
+
+    processed_data = state.get("processed_data")
+    if processed_data is None:
+        return ChatHistoryResponse(session_id=session_id, history=[])
+
+    try:
+        agent = get_or_create_chat_agent(session_id, processed_data)
+        history = agent.get_history()
+
+        return ChatHistoryResponse(
+            session_id=session_id,
+            history=history,
+        )
+
+    except Exception as e:
+        logger.exception(f"Error getting chat history: {e}")
+        return ChatHistoryResponse(session_id=session_id, history=[])
+
+
+@router.delete("/chat/{session_id}/history")
+async def clear_chat_history(session_id: str) -> Dict[str, str]:
+    """
+    Clear the conversation history for a session.
+
+    This resets the chat agent while keeping the processed data available.
+
+    Args:
+        session_id: Session ID.
+
+    Returns:
+        Confirmation message.
+    """
+    if session_id not in _sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = _sessions[session_id]
+    state = session.get("state")
+
+    if state and state.get("status") == "completed":
+        processed_data = state.get("processed_data")
+        if processed_data:
+            try:
+                agent = get_or_create_chat_agent(session_id, processed_data)
+                agent.clear_history()
+            except Exception as e:
+                logger.warning(f"Error clearing chat history: {e}")
+
+    return {"message": f"Chat history cleared for session {session_id}"}
 
 
 __all__ = ["router"]

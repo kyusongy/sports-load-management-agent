@@ -28,10 +28,10 @@ def plot_load_trend(
     end_date: Optional[str] = None,
 ) -> str:
     """
-    Plot a player's load trend over time.
+    Plot a player's ACWR trend over time.
 
     Args:
-        df: Processed DataFrame with 'load' column.
+        df: Processed DataFrame with 'ACWR' column.
         player: Player name to plot.
         output_path: Path to save the plot.
         start_date: Optional start date filter.
@@ -49,7 +49,7 @@ def plot_load_trend(
 
     fig, ax = plt.subplots(figsize=(12, 5))
 
-    ax.plot(subset["date"], subset["load"], linewidth=2, color="#2563eb", marker="o", markersize=4)
+    ax.plot(subset["date"], subset["ACWR"], linewidth=2, color="#2563eb", marker="o", markersize=4)
 
     # Add threshold lines
     ax.axhline(y=1.5, color="#ef4444", linestyle="--", alpha=0.7, label="High threshold (1.5)")
@@ -57,15 +57,15 @@ def plot_load_trend(
     ax.axhline(y=1.0, color="#64748b", linestyle=":", alpha=0.5, label="Optimal (1.0)")
 
     ax.set_xlabel("Date", fontsize=11)
-    ax.set_ylabel("ACWR (Load)", fontsize=11)
-    ax.set_title(f"Load Trend for {player}", fontsize=14, fontweight="bold")
+    ax.set_ylabel("ACWR", fontsize=11)
+    ax.set_title(f"ACWR Trend for {player}", fontsize=14, fontweight="bold")
     ax.legend(loc="upper right", fontsize=9)
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    logger.info(f"Saved load trend plot to {output_path}")
+    logger.info(f"Saved ACWR trend plot to {output_path}")
     return str(output_path)
 
 
@@ -139,7 +139,7 @@ def plot_top_players_bar(
 
     Args:
         df: Processed DataFrame.
-        metric: Column to rank by ('load', 'short_term_ave', 'long_term_ave', 'data').
+        metric: Column to rank by ('ACWR', 'short_term_ave', 'long_term_ave', 'data').
         n: Number of top players.
         output_path: Path to save the plot.
         start_date: Optional start date filter.
@@ -150,7 +150,7 @@ def plot_top_players_bar(
     """
     # Human-readable labels for metrics
     metric_labels = {
-        "load": "ACWR",
+        "ACWR": "ACWR",
         "data": "Training Load (sRPE)",
         "short_term_ave": "Short-term Average",
         "long_term_ave": "Long-term Average",
@@ -192,16 +192,16 @@ def plot_top_players_bar(
 
 def plot_load_quality_distribution(df: pd.DataFrame, output_path: Path) -> str:
     """
-    Pie chart showing distribution of load quality categories.
+    Pie chart showing distribution of ACWR categories.
 
     Args:
-        df: Processed DataFrame with 'load_quality' column.
+        df: Processed DataFrame with 'ACWR_category' column.
         output_path: Path to save the plot.
 
     Returns:
         Path to saved plot file.
     """
-    quality_counts = df["load_quality"].value_counts()
+    quality_counts = df["ACWR_category"].value_counts()
 
     fig, ax = plt.subplots(figsize=(8, 8))
 
@@ -222,19 +222,19 @@ def plot_load_quality_distribution(df: pd.DataFrame, output_path: Path) -> str:
         autotext.set_fontsize(11)
         autotext.set_fontweight("bold")
 
-    ax.set_title("Load Quality Distribution", fontsize=14, fontweight="bold")
+    ax.set_title("ACWR Category Distribution", fontsize=14, fontweight="bold")
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    logger.info(f"Saved load quality distribution to {output_path}")
+    logger.info(f"Saved ACWR category distribution to {output_path}")
     return str(output_path)
 
 
 def plot_team_load_timeline(df: pd.DataFrame, output_path: Path) -> str:
     """
-    Timeline showing all players' load trends.
+    Timeline showing all players' ACWR trends.
 
     Args:
         df: Processed DataFrame.
@@ -253,7 +253,7 @@ def plot_team_load_timeline(df: pd.DataFrame, output_path: Path) -> str:
         color = cmap(i % 20)
         ax.plot(
             player_data["date"],
-            player_data["load"],
+            player_data["ACWR"],
             label=player,
             alpha=0.7,
             linewidth=1.5,
@@ -265,8 +265,8 @@ def plot_team_load_timeline(df: pd.DataFrame, output_path: Path) -> str:
     ax.axhline(y=0.67, color="#22c55e", linestyle="--", alpha=0.5, linewidth=2)
 
     ax.set_xlabel("Date", fontsize=11)
-    ax.set_ylabel("ACWR (Load)", fontsize=11)
-    ax.set_title("Team Load Timeline", fontsize=14, fontweight="bold")
+    ax.set_ylabel("ACWR", fontsize=11)
+    ax.set_title("Team ACWR Timeline", fontsize=14, fontweight="bold")
 
     # Put legend outside plot
     ax.legend(loc="center left", bbox_to_anchor=(1, 0.5), fontsize=8, ncol=1)
@@ -281,7 +281,7 @@ def plot_team_load_timeline(df: pd.DataFrame, output_path: Path) -> str:
 
 def plot_player_load_heatmap(df: pd.DataFrame, output_path: Path) -> str:
     """
-    Heatmap showing load quality by player over time (weekly aggregation).
+    Heatmap showing ACWR by player over time (weekly aggregation).
 
     Args:
         df: Processed DataFrame.
@@ -296,7 +296,7 @@ def plot_player_load_heatmap(df: pd.DataFrame, output_path: Path) -> str:
 
     # Pivot to create player x week matrix
     pivot = df_copy.pivot_table(
-        values="load",
+        values="ACWR",
         index="player_name",
         columns="week",
         aggfunc="mean",
@@ -319,10 +319,10 @@ def plot_player_load_heatmap(df: pd.DataFrame, output_path: Path) -> str:
 
     ax.set_xlabel("Week", fontsize=11)
     ax.set_ylabel("Player", fontsize=11)
-    ax.set_title("Player Load Heatmap (Weekly Average)", fontsize=14, fontweight="bold")
+    ax.set_title("Player ACWR Heatmap (Weekly Average)", fontsize=14, fontweight="bold")
 
     # Add colorbar
-    cbar = plt.colorbar(im, ax=ax, label="ACWR (Load)")
+    cbar = plt.colorbar(im, ax=ax, label="ACWR")
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches="tight")
@@ -361,10 +361,10 @@ class LoadVisualizer:
         """
         plots = []
 
-        # 1. Top 5 players by average load
+        # 1. Top 5 players by average ACWR
         try:
-            path = self.output_dir / f"{session_id}_top_players_load.png"
-            plots.append(plot_top_players_bar(self.df, "load", 5, path))
+            path = self.output_dir / f"{session_id}_top_players_ACWR.png"
+            plots.append(plot_top_players_bar(self.df, "ACWR", 5, path))
         except Exception as e:
             logger.warning(f"Failed to generate top players chart: {e}")
 

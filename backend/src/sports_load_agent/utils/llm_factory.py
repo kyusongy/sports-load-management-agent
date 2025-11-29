@@ -60,16 +60,24 @@ class TokenUsageTracker(BaseCallbackHandler):
             response: LLM response containing token usage metadata
             **kwargs: Additional callback arguments
         """
-        if not response.llm_output or "token_usage" not in response.llm_output:
+        if not response.llm_output:
             return
 
-        usage = response.llm_output["token_usage"]
+        usage = response.llm_output.get("token_usage")
+        if not usage:
+            return
+
         model_name = response.llm_output.get("model_name", "unknown")
 
         with self.lock:
-            prompt_tokens = usage.get("prompt_tokens", 0)
-            completion_tokens = usage.get("completion_tokens", 0)
-            total_tokens = usage.get("total_tokens", 0)
+            # Handle None values - some models don't return all token counts
+            prompt_tokens = usage.get("prompt_tokens") or 0
+            completion_tokens = usage.get("completion_tokens") or 0
+            total_tokens = usage.get("total_tokens") or 0
+
+            # If total_tokens is missing, calculate it
+            if total_tokens == 0 and (prompt_tokens or completion_tokens):
+                total_tokens = prompt_tokens + completion_tokens
 
             self.total_prompt_tokens += prompt_tokens
             self.total_completion_tokens += completion_tokens
@@ -92,15 +100,15 @@ class TokenUsageTracker(BaseCallbackHandler):
             self.by_model[model_name]["call_count"] += 1
 
             # Track detailed breakdowns if available
-            if "prompt_tokens_details" in usage:
-                prompt_details = usage["prompt_tokens_details"]
-                self.total_cached_tokens += prompt_details.get("cached_tokens", 0)
+            prompt_details = usage.get("prompt_tokens_details")
+            if prompt_details:
+                cached = prompt_details.get("cached_tokens") or 0
+                self.total_cached_tokens += cached
 
-            if "completion_tokens_details" in usage:
-                completion_details = usage["completion_tokens_details"]
-                self.total_reasoning_tokens += completion_details.get(
-                    "reasoning_tokens", 0
-                )
+            completion_details = usage.get("completion_tokens_details")
+            if completion_details:
+                reasoning = completion_details.get("reasoning_tokens") or 0
+                self.total_reasoning_tokens += reasoning
 
             logger.debug(
                 f"Token usage [{self.name}]: +{total_tokens} tokens "

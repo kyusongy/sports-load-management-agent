@@ -82,7 +82,7 @@ def data_process_node(state: AgentState) -> Dict[str, Any]:
             "processed_data": processed_handle,
             "processed_csv_path": str(csv_path),
             "processed_excel_path": str(excel_path),
-            "status": "processing",
+            "status": "completed",  # Final node - ready for chat interaction
             "current_stage": "data_process",
             "error_message": None,
         }

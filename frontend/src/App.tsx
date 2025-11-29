@@ -5,8 +5,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FileUpload } from './components/FileUpload';
 import { ProcessingStatus } from './components/ProcessingStatus';
-import { Results } from './components/Results';
+import { Chat } from './components/Chat';
 import { useProcessing } from './hooks/useProcessing';
+import { getDownloadUrl } from './api/client';
+import { FileSpreadsheet, RefreshCw } from 'lucide-react';
 import './App.css';
 
 const queryClient = new QueryClient({
@@ -21,6 +23,7 @@ const queryClient = new QueryClient({
 function Dashboard() {
   const {
     stage,
+    sessionId,
     error,
     results,
     uploadAndProcess,
@@ -30,7 +33,7 @@ function Dashboard() {
 
   const showUpload = stage === 'idle' || stage === 'failed';
   const showProcessing = !showUpload && stage !== 'completed';
-  const showResults = stage === 'completed' && results;
+  const showResults = stage === 'completed';
 
   return (
     <div className="dashboard">
@@ -42,6 +45,12 @@ function Dashboard() {
             <p>Training Load Analysis & ACWR Monitoring</p>
           </div>
         </div>
+        {showResults && (
+          <button className="header-reset-btn" onClick={reset}>
+            <RefreshCw size={16} />
+            New Analysis
+          </button>
+        )}
       </header>
 
       <main className="main-content">
@@ -50,8 +59,8 @@ function Dashboard() {
             <div className="section-header">
               <h2>Upload Training Data</h2>
               <p>
-                Upload your athlete training data to calculate ACWR metrics,
-                generate visualizations, and receive AI-powered insights.
+                Upload your athlete training data to calculate ACWR metrics
+                and chat with AI for insights and visualizations.
               </p>
             </div>
             <FileUpload
@@ -71,8 +80,43 @@ function Dashboard() {
           <ProcessingStatus stage={stage} error={error} />
         )}
 
-        {showResults && results && (
-          <Results results={results} onReset={reset} />
+        {showResults && sessionId && (
+          <div className="analysis-layout">
+            {/* Downloads Panel */}
+            <div className="downloads-panel">
+              <h3>📥 Processed Data</h3>
+              <p className="downloads-description">
+                Download your processed training data with ACWR metrics calculated.
+              </p>
+              <div className="download-buttons-vertical">
+                {results?.processed_csv_path && (
+                  <a
+                    href={getDownloadUrl(results.processed_csv_path)}
+                    className="download-btn"
+                    download
+                  >
+                    <FileSpreadsheet size={18} />
+                    Download CSV
+                  </a>
+                )}
+                {results?.processed_excel_path && (
+                  <a
+                    href={getDownloadUrl(results.processed_excel_path)}
+                    className="download-btn download-btn--excel"
+                    download
+                  >
+                    <FileSpreadsheet size={18} />
+                    Download Excel
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Chat Panel */}
+            <div className="chat-panel">
+              <Chat sessionId={sessionId} />
+            </div>
+          </div>
         )}
       </main>
 

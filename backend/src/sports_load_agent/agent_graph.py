@@ -1,7 +1,11 @@
 """
 LangGraph workflow definition for sports load management.
 
-Defines the graph structure: data_ingest -> data_process -> visualization -> report_generation
+Defines the graph structure: data_ingest -> data_process -> END
+
+After processing completes, users can interact with the data via the
+conversational chat endpoint (/chat/{session_id}) which uses Claude
+with tool calling for dynamic analysis and visualization.
 """
 
 from typing import Any, Literal
@@ -13,8 +17,6 @@ from sports_load_agent.agent_state import AgentState
 from sports_load_agent.nodes import (
     data_ingest_node,
     data_process_node,
-    report_generation_node,
-    visualization_node,
 )
 
 
@@ -26,37 +28,23 @@ def _routing_after_ingest(state: AgentState) -> Literal["data_process", "END"]:
     return "data_process"
 
 
-def _routing_after_process(state: AgentState) -> Literal["visualization", "END"]:
-    """Route after data processing based on status."""
-    if state.get("status") == "failed":
-        logger.warning("Routing to END due to processing failure")
-        return "END"
-    return "visualization"
-
-
-def _routing_after_visualization(state: AgentState) -> Literal["report_generation", "END"]:
-    """Route after visualization based on status."""
-    if state.get("status") == "failed":
-        logger.warning("Routing to END due to visualization failure")
-        return "END"
-    return "report_generation"
-
-
 def _build_workflow() -> StateGraph:
     """
     Build the sports load management workflow graph.
 
-    Flow: START -> data_ingest -> data_process -> visualization -> report_generation -> END
+    Flow: START -> data_ingest -> data_process -> END
+
+    After this workflow completes:
+    - Processed CSV/Excel files are available for download
+    - User can start conversational chat via /chat/{session_id}
     """
     logger.info("Building sports load management workflow...")
 
     workflow = StateGraph(AgentState)
 
-    # Add nodes
+    # Add nodes (only ingest and process - analysis is now conversational)
     workflow.add_node("data_ingest", data_ingest_node)
     workflow.add_node("data_process", data_process_node)
-    workflow.add_node("visualization", visualization_node)
-    workflow.add_node("report_generation", report_generation_node)
 
     # Entry point
     workflow.add_edge(START, "data_ingest")
@@ -71,26 +59,8 @@ def _build_workflow() -> StateGraph:
         },
     )
 
-    workflow.add_conditional_edges(
-        "data_process",
-        _routing_after_process,
-        {
-            "visualization": "visualization",
-            "END": END,
-        },
-    )
-
-    workflow.add_conditional_edges(
-        "visualization",
-        _routing_after_visualization,
-        {
-            "report_generation": "report_generation",
-            "END": END,
-        },
-    )
-
-    # Final edge
-    workflow.add_edge("report_generation", END)
+    # After processing, workflow ends - user interacts via chat
+    workflow.add_edge("data_process", END)
 
     logger.info("Workflow built successfully")
     return workflow

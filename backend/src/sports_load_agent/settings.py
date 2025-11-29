@@ -8,13 +8,17 @@ Uses the same API endpoint pattern as Langgraph-DA (daagent env).
 import os
 from pathlib import Path
 
-# API Configuration
+# API Configuration - OpenAI Compatible Router
 DEFAULT_API_ENDPOINT = "https://api.apiyi.com/v1"
 DEFAULT_MODEL = "gpt-4.1"
+DEFAULT_CHAT_MODEL = "claude-sonnet-4-5-20250929"
 
 API_ENDPOINT = os.getenv("LANGGRAPH_API_ENDPOINT", DEFAULT_API_ENDPOINT)
 API_KEY = os.getenv("OPENAI_API_KEY", "")
 MODEL_NAME = os.getenv("LANGGRAPH_GENERAL_MODEL", DEFAULT_MODEL)
+
+# Chat model for conversational tool calling (uses same API endpoint)
+CHAT_MODEL = os.getenv("LANGGRAPH_CHAT_MODEL", DEFAULT_CHAT_MODEL)
 
 # Path Configuration
 BACKEND_ROOT = Path(__file__).resolve().parents[2]

@@ -235,8 +235,8 @@ class LoadCalculator:
     def add_load_and_quality(self) -> None:
         """
         Compute:
-        - load = short_term_ave / long_term_ave (ACWR)
-        - load_quality: 'high' (load > 1.5), 'low' (load < 0.67), 'medium' otherwise
+        - ACWR = short_term_ave / long_term_ave (Acute:Chronic Workload Ratio)
+        - ACWR_category: 'high' (ACWR > 1.5), 'low' (ACWR < 0.67), 'medium' otherwise
 
         ACWR (Acute:Chronic Workload Ratio) interpretation:
         - High (>1.5): Increased injury risk - athlete may be overloaded
@@ -252,24 +252,24 @@ class LoadCalculator:
                 "long_term_ave column missing. Call add_long_term_average() first."
             )
 
-        self.df["load"] = self.df["short_term_ave"] / self.df["long_term_ave"]
+        self.df["ACWR"] = self.df["short_term_ave"] / self.df["long_term_ave"]
         mask_invalid = (
             self.df["short_term_ave"].isna() | self.df["long_term_ave"].isna()
         )
-        self.df.loc[mask_invalid, "load"] = np.nan
-        self.df["load"] = self.df["load"].round(4)
+        self.df.loc[mask_invalid, "ACWR"] = np.nan
+        self.df["ACWR"] = self.df["ACWR"].round(4)
 
-        def categorize(load: float) -> Optional[str]:
-            if pd.isna(load):
+        def categorize(acwr: float) -> Optional[str]:
+            if pd.isna(acwr):
                 return None
-            if load > 1.5:
+            if acwr > 1.5:
                 return "high"
-            if load < 0.6667:
+            if acwr < 0.6667:
                 return "low"
             return "medium"
 
-        self.df["load_quality"] = self.df["load"].apply(categorize)
-        logger.info("Added load and load_quality columns")
+        self.df["ACWR_category"] = self.df["ACWR"].apply(categorize)
+        logger.info("Added ACWR and ACWR_category columns")
 
     def process_all(self) -> "LoadCalculator":
         """
@@ -312,24 +312,24 @@ class LoadCalculator:
             "missing_data_count": int(self.df["data"].isna().sum()),
         }
 
-        if "load_quality" in self.df.columns:
-            quality_counts = self.df["load_quality"].value_counts().to_dict()
-            stats["load_quality_distribution"] = quality_counts
+        if "ACWR_category" in self.df.columns:
+            quality_counts = self.df["ACWR_category"].value_counts().to_dict()
+            stats["ACWR_category_distribution"] = quality_counts
 
-            # Players with high load concern
-            high_load_players = (
-                self.df[self.df["load_quality"] == "high"]["player_name"]
+            # Players with high ACWR concern
+            high_acwr_players = (
+                self.df[self.df["ACWR_category"] == "high"]["player_name"]
                 .unique()
                 .tolist()
             )
-            stats["high_load_players"] = high_load_players
+            stats["high_ACWR_players"] = high_acwr_players
 
-        if "load" in self.df.columns:
-            stats["load_stats"] = {
-                "mean": round(self.df["load"].mean(), 4),
-                "median": round(self.df["load"].median(), 4),
-                "min": round(self.df["load"].min(), 4),
-                "max": round(self.df["load"].max(), 4),
+        if "ACWR" in self.df.columns:
+            stats["ACWR_stats"] = {
+                "mean": round(self.df["ACWR"].mean(), 4),
+                "median": round(self.df["ACWR"].median(), 4),
+                "min": round(self.df["ACWR"].min(), 4),
+                "max": round(self.df["ACWR"].max(), 4),
             }
 
         return stats
@@ -360,8 +360,8 @@ class LoadCalculator:
                 workbook = writer.book
                 worksheet = writer.sheets["data"]
 
-                if "load_quality" in self.df.columns:
-                    q_col_idx = self.df.columns.get_loc("load_quality")
+                if "ACWR_category" in self.df.columns:
+                    q_col_idx = self.df.columns.get_loc("ACWR_category")
 
                     # Define formats
                     red_format = workbook.add_format({"bg_color": "#FF9999"})

@@ -51,7 +51,8 @@ Thumbs.db
 *.log
 
 # Data files (uncomment if you want to ignore data)
-# *.csv
+*.csv
+*.ipynb
 # *.json
 # data/
 

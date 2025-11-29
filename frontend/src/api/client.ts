@@ -8,6 +8,9 @@ import type {
   StatusResponse,
   ResultsResponse,
   TokenStats,
+  ChatRequest,
+  ChatResponse,
+  ChatHistoryResponse,
 } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -101,6 +104,46 @@ export function getDownloadUrl(path: string): string {
     return `${API_BASE_URL}${path}`;
   }
   return `${API_BASE_URL}${path}`;
+}
+
+// ============================================================================
+// Chat API Functions
+// ============================================================================
+
+/**
+ * Send a chat message and get a response
+ */
+export async function sendChatMessage(
+  sessionId: string,
+  message: string
+): Promise<ChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/chat/${sessionId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message } as ChatRequest),
+  });
+
+  return handleResponse<ChatResponse>(response);
+}
+
+/**
+ * Get chat history for a session
+ */
+export async function getChatHistory(sessionId: string): Promise<ChatHistoryResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/chat/${sessionId}/history`);
+  return handleResponse<ChatHistoryResponse>(response);
+}
+
+/**
+ * Clear chat history for a session
+ */
+export async function clearChatHistory(sessionId: string): Promise<{ message: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/chat/${sessionId}/history`, {
+    method: 'DELETE',
+  });
+  return handleResponse<{ message: string }>(response);
 }
 
 export { APIError };
